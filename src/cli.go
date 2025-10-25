@@ -1,11 +1,12 @@
 package gosplit
 
 import (
-	"encoding/json"
 	"bufio"
+	"encoding/json"
 	"fmt"
 	"os"
 	"reflect"
+	"slices"
 	"strings"
 )
 
@@ -48,7 +49,7 @@ func execute(cmd *Command, args []string) (string, error) {
 	next, ok := cmd.subcommands[args[0]]
 	if !ok {
 		if cmd.handler != nil {
-			cmd.handler(args)
+			return cmd.handler(args)
 		}
 		return "", fmt.Errorf("Unknown command: %s", args[0])
 	}
@@ -72,15 +73,34 @@ func usageHandler(args []string) (string, error) {
 			}
 		}
 	} else {
-		msg = `
-List of commands:
+		helpCommand := cmdTreeRoot.subcommands["help"]
+		helpSubcommands := helpCommand.subcommands
+		helpSubcommandsKeys := make([]string, 0, len(helpSubcommands))
+		for k := range helpSubcommands {
+			helpSubcommandsKeys = append(helpSubcommandsKeys, k)
+		}
 
-help, h -- Display this menu
-list, l -- List all games
-quit, q -- Quit GoSplit
-select, s -- Select a game to split
+		slices.Sort(helpSubcommandsKeys)
+		
+		cmdsCompleted := []*Command{}
 
-Type "help" followed by the command for full documentation.`
+		msg = "List of commands:\n\n"
+		for _, key := range helpSubcommandsKeys {
+			cmd := helpSubcommands[key]
+			if slices.Contains(cmdsCompleted, cmd) {
+				continue
+			}
+
+			doc := cmd.documentation
+			doc = strings.TrimSpace(doc)
+			firstLine := strings.Split(doc, "\n")[0]
+			msg += strings.Join(cmd.cmd, ",")
+			msg += " -- "
+			msg += firstLine + "\n"
+
+			cmdsCompleted = append(cmdsCompleted, cmd)
+		}
+		msg += "\nType \"help\" followed by the command for full documentation."
 	}
 
 	msg = strings.TrimSpace(msg)
@@ -154,6 +174,14 @@ func stopHandler(args []string) (string, error) {
 }
 
 func splitHandler(args []string) (string, error) {
+	return "splitHandler", nil
+}
+
+func addSplitHandler(args []string) (string, error) {
+	return "addSplitHandler", nil
+}
+
+func removeSplitHandler(args []string) (string, error) {
 	return "", nil
 }
 
@@ -188,4 +216,3 @@ func writeOutToJson(data map[string]string, filepath string) (error) {
 //   pause
 //   stop
 //   split
-

@@ -1,15 +1,18 @@
 package gosplit
 
 import (
+	"fmt"
+	//"slices"
 	"strings"
 )
 
 type Command struct {
 	name string
 	cmd []string
-	documentation string
 	handler func([]string)(string, error)
+	parent *Command
 	subcommands map[string]*Command
+	documentation string
 }
 
 func addSubCommand(cmd *Command, subCmd *Command) {
@@ -18,18 +21,25 @@ func addSubCommand(cmd *Command, subCmd *Command) {
 	}
 }
 
+func buildDocumentation(root *Command) {
+
+}
+
 func initCommandTree() (*Command) {
 	root := &Command {
 		name: "ROOT",
 		cmd: []string{"ROOT"},
-		documentation: "Root command node, for organizational reasons only.",
+		parent: nil,
 		subcommands: map[string]*Command{},
+		documentation: "Root command node, for organizational reasons only.",
 	}
 
 	newGame := &Command{
 		name: "newGame",
 		cmd: []string{"new_game", "ng"},
 		handler: newGameHandler,
+		parent: root,
+		subcommands: map[string]*Command{},
 		documentation: 
 `
 Configure a new game for GoSplit to manage.
@@ -42,7 +52,6 @@ you provided an incorrect type, this command may fail.
 
 Usage:	new_game | ng
 `,
-		subcommands: map[string]*Command{},
 	}
 	addSubCommand(root, newGame)
 
@@ -53,6 +62,7 @@ Usage:	new_game | ng
 		documentation: strings.Join([]string{
 			"List all games.",
 		}, "\n"),
+		parent: root,
 	}
 	addSubCommand(root, list)
 
@@ -60,6 +70,7 @@ Usage:	new_game | ng
 		name: "select",
 		cmd: []string{"select", "s"},
 		handler: selectHandler,
+		parent: root,
 		documentation: 
 `
 Select a game to split.
@@ -77,6 +88,7 @@ Usage:	select | select [GAME]
 		name: "quit",
 		cmd: []string{"quit", "exit", "q"},
 		handler: quitHandler,
+		parent: root,
 		documentation:
 `
 Exit GoSplit.
@@ -93,71 +105,171 @@ Usage: 	quit | q | exit
 		name: "game",
 		cmd: []string{"game", "g"},
 		handler: gameHandler,
-		documentation: strings.Join([]string{
-			"Show currently selected game.",
-		}, "\n"),
+		parent: root,
+		documentation:
+`
+Perform game operations.
+
+With no arguments, display the selected game.
+`,
 		subcommands: map[string]*Command{},
 	}
 	addSubCommand(root, game)
+
+	split := &Command{
+		name: "split",
+		cmd: []string{"split", "sp"},
+		handler: splitHandler,
+		parent: root,
+		documentation: strings.Join([]string{
+			"Save the current time to the current split.",
+		}, "\n"),
+		subcommands: map[string]*Command{},
+	}
+	addSubCommand(root, split)
+
+	addSplit := &Command{
+		name: "addSplit",
+		cmd: []string{"add"},
+		handler: addSplitHandler,
+		parent: split,
+		documentation:
+`
+Add a new split
+
+The first argument is the name to give the split.
+
+The second argument is an optional index at which to add the split.
+
+Usage:  game split add [SPLIT_NAME]
+	game split add [SPLIT_NAME] [INDEX]
+`,
+	}
+	addSubCommand(split, addSplit)
+
+	removeSplit := &Command{
+		name: "removeSplit",
+		cmd: []string{"remove", "rm"},
+		handler: removeSplitHandler,
+		parent: split,
+		documentation:
+`
+Remove a split.
+
+Without any arguments, the current split will be removed.
+
+Provide the index of the split you want to remove. The top split is 1, the second split is 2, etc.
+Alternatively, you can provide the split name.
+
+Usage:  split remove | split rm
+	split remove [INDEX] | split remove [SPLIT_NAME]
+`,
+	}
+	addSubCommand(split, removeSplit)
 
 	start := &Command{
 		name: "start",
 		cmd: []string{"start", "go", "run"},
 		handler: startHandler,
+		parent: game,
 		documentation: strings.Join([]string{
 			"Start the timer.",
 		}, "\n"),
 	}
-	addSubCommand(root, start)
 	addSubCommand(game, start)
 
 	pause := &Command{
 		name: "pause",
 		cmd: []string{"pause", "p"},
 		handler: pauseHandler,
+		parent: game,
 		documentation: strings.Join([]string{
 			"Pause the timer.",
 		}, "\n"),
 	}
-	addSubCommand(root, pause)
 	addSubCommand(game, pause)
 
 	stop := &Command{
 		name: "stop",
 		cmd: []string{"stop"},
 		handler: stopHandler,
+		parent: game,
 		documentation: strings.Join([]string{
 			"Stop the timer.",
 		}, "\n"),
 	}
-	addSubCommand(root, stop)
 	addSubCommand(game, stop)
-
-	split := &Command{
-		name: "split",
-		cmd: []string{"split", "sp"},
-		handler: splitHandler,
-		documentation: strings.Join([]string{
-			"Save the current time to the current split.",
-		}, "\n"),
-	}
-	addSubCommand(root, split)
-	addSubCommand(game, split)
 
 	help := &Command{
 		name: "help",
 		cmd: []string{"help", "h"},
 		handler: usageHandler,
+		parent: root,
+		subcommands: map[string]*Command{},
 		documentation: strings.Join([]string{
 			"Print list of commands.",
 		}, "\n"),
-		subcommands: map[string]*Command{},
 	}
+	addSubCommand(root, help)
 	for _, cmd := range root.subcommands {
 		addSubCommand(help, cmd)
 	}
-	addSubCommand(root, help)
+
+	edges := map[*Command][]*Command {
+		root: {newGame, list, _select, quit, game, help, split},
+		split: {removeSplit},
+		game: {start, pause, stop},
+		help: {newGame, list, _select, quit, game},
+	}
+
+	DFS(root, edges, visit)
 
 	return root
 }
 
+func visit(cmd *Command) {
+	if cmd.name == "ROOT" || cmd.parent.name == "ROOT" {
+		return
+	}
+
+	msg := ""
+	if !strings.Contains(
+		cmd.parent.documentation,
+		"List of " + cmd.parent.name + " subcommands",
+	) {
+		msg = fmt.Sprintf("\nList of %s subcommands:\n\n", cmd.parent.name)
+	}
+
+	absoluteCmd := buildCmdFromRoot(cmd)
+	doc := strings.TrimSpace(cmd.documentation)
+	firstLine := strings.Split(doc, "\n")[0]
+	msg += fmt.Sprintf("\033[1m%s\033[0m -- %s\n", absoluteCmd, firstLine)
+
+	cmd.parent.documentation += msg
+}
+
+func buildCmdFromRoot(cmd *Command) string {
+	if cmd.parent.name == "ROOT" {
+		return cmd.cmd[0]
+	}
+	return buildCmdFromRoot(cmd.parent) + " " + cmd.cmd[0]
+}
+
+func DFS(cmd *Command, edges map[*Command][]*Command, visitCb func(*Command)) {
+	visited := map[string]bool{}
+
+	if cmd == nil {
+		return
+	}
+	visited[cmd.name] = true
+	visitCb(cmd)
+
+	for _, subCmd := range edges[cmd] {
+		if visited[subCmd.name] {
+			continue
+		} else if subCmd.name == "help" {
+			continue
+		}
+		DFS(subCmd, edges, visitCb)
+	}
+}
