@@ -117,13 +117,14 @@ With no arguments, display the selected game.
 	addSubCommand(root, game)
 
 	split := &Command{
-		name: "split",
-		cmd: []string{"split", "sp"},
+		name: "splits",
+		cmd: []string{"splits", "sp"},
 		handler: splitHandler,
 		parent: root,
-		documentation: strings.Join([]string{
-			"Save the current time to the current split.",
-		}, "\n"),
+		documentation: 
+`
+Perform operations on splits.
+`,
 		subcommands: map[string]*Command{},
 	}
 	addSubCommand(root, split)
@@ -237,7 +238,7 @@ func visit(cmd *Command) {
 		cmd.parent.documentation,
 		"List of " + cmd.parent.name + " subcommands",
 	) {
-		msg = fmt.Sprintf("\nList of %s subcommands:\n\n", cmd.parent.name)
+		msg = fmt.Sprintf("\n\nList of %s subcommands:\n", cmd.parent.name)
 	}
 
 	absoluteCmd := buildCmdFromRoot(cmd)
