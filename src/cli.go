@@ -11,13 +11,6 @@ type Game struct {
 	attempts string
 }
 
-type Split struct {
-	SegmentName string
-	SplitTime string
-	SegmentTime string
-	BestSegment string
-}
-
 var cmdTreeRoot *Command
 var Splits []Split
 

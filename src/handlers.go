@@ -7,6 +7,7 @@ import (
 	"os"
 	"reflect"
 	"slices"
+	"strconv"
 	"text/tabwriter"
 
 	"strings"
@@ -122,7 +123,6 @@ func newGameHandler(args []string) (string, error) {
 	//
 	// TODO: input validation should be added here prior to writing to json.
 	//
-
 	filepath := "config_test.jsonl" // TODO: parametrize me
 	mode := os.O_APPEND|os.O_CREATE|os.O_WRONLY
 	writeOutToJson(newGameMap, filepath, mode)
@@ -156,35 +156,50 @@ func addSplitHandler(args []string) (string, error) {
 		return "", fmt.Errorf("You must provide a segment name.")
 	}
 
-	newSplit := Split{}
-	newSplit.SegmentName = args[0]
+	newSplit := Split{
+		SegmentName: args[0],
+		SplitTime: normalizeTimeString("0"),
+		SegmentTime: normalizeTimeString("0"),
+		BestSegment: normalizeTimeString("99:99:99.999"),
+	}
+	splitIndex := len(Splits)
+	for _, arg := range args {
+		if strings.HasPrefix(arg, "at") {
+			i := strings.Split(arg, "=")[1]
+			err := fmt.Errorf("")
+			splitIndex, err = strconv.Atoi(i)  // User defined index is 1-indexed
+			splitIndex -= 1
+			if err != nil {
+				return "", fmt.Errorf("Error parsing user defined index: %v", err)
+			}
+		}
+	}
+	Splits = slices.Insert(Splits, splitIndex, newSplit)
 
 	for _, arg := range args {
 		if strings.HasPrefix(arg, "SplitTime") {
 			splitTime := strings.Split(arg, "=")[1]
-			newSplit.SplitTime = normalizeTimeString(splitTime)
+			splitTime = normalizeTimeString(splitTime)
+			err := setSplitTime(splitTime, splitIndex)
+			if err != nil {
+				return "", err
+			}
 		}
 		if strings.HasPrefix(arg, "SegmentTime") {
 			segmentTime := strings.Split(arg, "=")[1]
-			newSplit.SegmentTime = normalizeTimeString(segmentTime)
+			segmentTime = normalizeTimeString(segmentTime)
+			err := setSegmentTime(segmentTime, splitIndex)
+			if err != nil {
+				return "", err
+			}
 		}
 		if strings.HasPrefix(arg, "BestSegment") {
 			bestSegment := strings.Split(arg, "=")[1]
-			newSplit.BestSegment = normalizeTimeString(bestSegment)
+			bestSegment = normalizeTimeString(bestSegment)
+			setBestSegment(bestSegment, splitIndex)
 		}
 	}
 
-	if newSplit.SplitTime == "" {
-		newSplit.SplitTime = normalizeTimeString("0")
-	}
-	if newSplit.SegmentTime == "" {
-		newSplit.SegmentTime = normalizeTimeString("0")
-	}
-	if newSplit.BestSegment == "" {
-		newSplit.BestSegment = normalizeTimeString("0")
-	}
-
-	Splits = append(Splits, newSplit)
 	printSplits()
 	return "", nil
 }
