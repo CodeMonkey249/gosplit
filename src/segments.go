@@ -5,7 +5,7 @@ import (
 	"time"
 )
 
-type Split struct {
+type Segment struct {
 	SegmentName string
 	SplitTime string
 	SegmentTime string
@@ -22,7 +22,7 @@ func setSplitTime(t string, i int) error {
 
 	for j, split := range Splits {
 		if j != 0 {
-			currSplitTime := timeAsDuration(split.SplitTime)
+			currSplitTime := timeAsDuration(Splits[j].SplitTime)
 			prevSplitTime := timeAsDuration(Splits[j-1].SplitTime)
 
 			if currSplitTime < prevSplitTime {

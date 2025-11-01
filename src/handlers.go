@@ -156,7 +156,7 @@ func addSplitHandler(args []string) (string, error) {
 		return "", fmt.Errorf("You must provide a segment name.")
 	}
 
-	newSplit := Split{
+	newSplit := Segment{
 		SegmentName: args[0],
 		SplitTime: normalizeTimeString("0"),
 		SegmentTime: normalizeTimeString("0"),

@@ -12,7 +12,7 @@ type Game struct {
 }
 
 var cmdTreeRoot *Command
-var Splits []Split
+var Splits []Segment
 
 func ParseCommands(cmd string) (string, error) {
 	if cmdTreeRoot == nil {
