@@ -62,6 +62,7 @@ func TestAddSplits(t *testing.T) {
 				"sp add Segment3 SegmentTime=4:57.000 BestSegment=4:57.000 SplitTime=2:07:00.000",
 				"sp add Segment4 SegmentTime=55:04.001 SplitTime=3:02:04.001",
 				"sp add Segment5 SplitTime=4:02:00.000",
+				"sp add Segment6 SplitTime=999:80:20.123123",
 			},
 			[]Segment{
 				{
@@ -93,6 +94,12 @@ func TestAddSplits(t *testing.T) {
 					SplitTime:   "4:02:00.000",
 					SegmentTime: "59:55.999",
 					BestSegment: "59:55.999",
+				},
+				{
+					SegmentName: "Segment6",
+					SplitTime:   "1000:20:20.123",
+					SegmentTime: "996:18:20.123",
+					BestSegment: "99:99:99.999",
 				},
 			},
 		},

@@ -19,6 +19,8 @@ func normalizeTimeString(input string) string {
 	var h, m, s string
 	mainPart, msPart := splitMilliseconds(input)
 	parts := strings.Split(mainPart, ":")
+	if len(parts) == 1 {
+	}
 
 	switch len(parts) {
 	case 1:
@@ -55,8 +57,10 @@ func normalizeTimeString(input string) string {
 	parts = strings.Split(mainPart, ":")
 	modParts := parts
 	for i, part := range parts {
-		if i == len(parts) - 1 {
-			modParts = []string{"0"}
+		if i == len(parts)-1 {
+			if parts[i][0] == '0' && len(parts[i]) > 1 {
+				parts[i] = parts[i][1:]
+			}
 			break
 		}
 		if part == "00" {
@@ -110,15 +114,19 @@ func timeAsString(d time.Duration) string {
 }
 
 func parseSeconds(parts []string, i int) (int, int) {
+	var seconds, millis int
+
 	secParts := strings.Split(parts[i], ".")
 	seconds, err := strconv.Atoi(secParts[0])
 	if err != nil {
 		panic(err)
 	}
 
-	millis, err := strconv.Atoi(secParts[1])
-	if err != nil {
-		panic(err)
+	if len(secParts) > 1 {
+		millis, err = strconv.Atoi(secParts[1])
+		if err != nil {
+			panic(err)
+		}
 	}
 	return seconds, millis
 }
@@ -139,7 +147,8 @@ func parseHours(parts []string, i int) int {
 	return hours
 }
 
-func timeAsDuration(s string) (time.Duration) {
+func timeAsDuration(s string) time.Duration {
+	s = normalizeTimeString(s)
 	var hours, minutes, seconds, millis int
 	parts := strings.Split(s, ":")
 
@@ -163,9 +172,9 @@ func timeAsDuration(s string) (time.Duration) {
 	}
 
 	total := time.Duration(hours)*time.Hour +
-	time.Duration(minutes)*time.Minute +
-	time.Duration(seconds)*time.Second +
-	time.Duration(millis)*time.Millisecond
+		time.Duration(minutes)*time.Minute +
+		time.Duration(seconds)*time.Second +
+		time.Duration(millis)*time.Millisecond
 
 	return total
 }
