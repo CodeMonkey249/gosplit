@@ -5,12 +5,17 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"os/signal"
 	"reflect"
 	"slices"
 	"strconv"
 	"text/tabwriter"
+	"time"
 
 	"strings"
+
+	"github.com/MarinX/keylogger"
+	"github.com/jedib0t/go-pretty/v6/table"
 )
 
 func writeOutToJson(data map[string]string, filepath string, mode int) error {
@@ -134,8 +139,137 @@ func gameHandler(args []string) (string, error) {
 	return "", nil
 }
 
+func padRight(s string, width int) string {
+	return fmt.Sprintf("%-*s", width, s)
+}
+
+func clearScreen() {
+	fmt.Print("\033[H\033[2J")
+}
+
+func hideCursor() { fmt.Print("\033[?25l") }
+func showCursor() { fmt.Print("\033[?25h") }
+
+// moveCursorUp moves the cursor up by n lines
+func moveCursorUp(x int, y int) {
+	fmt.Printf("\033[%d;%dH", y, x)
+}
+
 func startHandler(args []string) (string, error) {
-	return "", nil
+	t := table.NewWriter()
+	t.SetOutputMirror(os.Stdout)
+
+	style := table.StyleDefault
+	style.Box = table.BoxStyle{
+		PaddingLeft:  " ",
+		PaddingRight: " ",
+	}
+	style.Options = table.Options{
+		DrawBorder:      false,
+		SeparateColumns: true,
+		SeparateHeader:  false,
+		SeparateRows:    false,
+	}
+	t.SetStyle(style)
+
+	ticker := time.NewTicker(1 * time.Millisecond)
+	defer ticker.Stop()
+
+	stop := make(chan os.Signal, 1)
+	signal.Notify(stop, os.Interrupt)
+
+	split := make(chan int, 1)
+	go nextSplitHandler(split)
+
+	start := time.Now()
+	hideCursor()
+	defer showCursor()
+
+	clearScreen()
+	moveCursorUp(1, 1)
+	
+	modSegments := []Segment{}
+	for i := range Splits {
+		modSegments = append(modSegments, Segment{})
+		modSegments[i].SegmentName = Splits[i].SegmentName
+		if Splits[i].SplitTime == normalizeTimeString("0") {
+			modSegments[i].SplitTime = "-"
+		} else {
+			modSegments[i].SplitTime = Splits[i].SplitTime
+		}
+	}
+	currSeg := 0
+
+	for {
+		select {
+		case <-ticker.C:
+			elapsed := time.Since(start).Round(time.Millisecond)
+
+			t.ResetHeaders()
+			t.ResetRows()
+			t.AppendHeader(table.Row{
+				padRight("Segment", 30),
+				padRight("Time", 30),
+			})
+
+			for i, seg := range modSegments {
+				if i == currSeg {
+					t.AppendRows([]table.Row{
+						{padRight(seg.SegmentName, 30), padRight(normalizeTimeString(elapsed.String()), 30)},
+					})
+				} else {
+					t.AppendRows([]table.Row{
+						{padRight(seg.SegmentName, 30), padRight(seg.SplitTime, 30)},
+					})
+				}
+			}
+
+			t.Render()
+			moveCursorUp(1, 1)
+
+		case <-stop:
+			showCursor()
+			return "", nil
+
+		case <-split:
+			elapsed := time.Since(start).Round(time.Millisecond)
+			modSegments[currSeg].SplitTime = normalizeTimeString(elapsed.String())
+			currSeg++
+			if currSeg >= len(modSegments) {
+				clearScreen()
+				showCursor()
+				printSplits()
+				fmt.Printf("Would you like to save these times? (y/n): ")
+				var save string
+				fmt.Scan(&save)
+				switch save {
+				case "y", "Y":
+					saveSegments(modSegments)
+					printSplits()
+					return "Segments saved!\n", nil
+				case "n", "N":
+					fmt.Printf("Are you sure? Type n again to discard times: ")
+					var confirm string
+					fmt.Scan(&confirm)
+					if confirm == "n" || confirm == "N" {
+						return "Segments discarded", nil
+					}
+				}
+			}
+			go nextSplitHandler(split)
+		}
+	}
+}
+
+func nextSplitHandler(notify chan int) {
+	var keyboard *keylogger.KeyLogger
+	key_device_path := FindKeyboard()
+	keyboard, err := keylogger.New(key_device_path)
+	if err != nil {
+		panic(err)
+	}
+	defer keyboard.Close()
+	ListenForKeystroke(keyboard, notify, "SPACE")
 }
 
 func pauseHandler(args []string) (string, error) {

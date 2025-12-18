@@ -4,6 +4,7 @@ import (
 	"log/slog"
 	"os"
 	"time"
+
 	"github.com/MarinX/keylogger"
 	"golang.org/x/term"
 )
@@ -11,6 +12,8 @@ import (
 func FindKeyboard() (string) {
 	// TODO: this needs to be tested to ensure it can reliably find keyboard
 	keyboards := keylogger.FindAllKeyboardDevices()
+	//keyboard := keylogger.FindKeyboardDevice()
+	return "/dev/input/event6"
 
 	// TODO: allow for inputting manual path
 	if len(keyboards) <= 0 {
@@ -56,7 +59,7 @@ func FindKeyboard() (string) {
 }
 
 func checkKeyboard(k *keylogger.KeyLogger) (bool) {
-	timeout := time.After(1 * time.Millisecond)
+	timeout := time.After(1 * time.Second)
 
 	select {
 	case <-k.Read():
@@ -77,6 +80,20 @@ func ReadFromKeyboard(k *keylogger.KeyLogger) {
 			}
 			if e.KeyRelease() {
 				slog.Info("[event] release key " + e.KeyString())
+			}
+		}
+	}
+}
+
+func ListenForKeystroke(k *keylogger.KeyLogger, notify chan int, key string) {
+	events := k.Read()
+
+	for e := range events {
+		switch e.Type {
+		case keylogger.EvKey:
+			if e.KeyPress() && e.KeyString() == key {
+				notify <- 0
+				return
 			}
 		}
 	}

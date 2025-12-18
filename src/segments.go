@@ -76,3 +76,10 @@ func updateBestSegment() {
 	}
 }
 
+func saveSegments(newSegs []Segment) {
+	for i, seg := range newSegs {
+		if seg.SplitTime != "-" {
+			setSplitTime(seg.SplitTime, i)
+		}
+	}
+}
